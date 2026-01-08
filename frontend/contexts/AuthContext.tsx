@@ -87,9 +87,12 @@ export const [AuthContext, useAuth] = createContextHook(() => {
 export const [CartContext, useCart] = createContextHook(() => {
   const [items, setItems] = useState<CartItem[]>([]);
   const [deliveryAddress, setDeliveryAddress] = useState<DeliveryAddress | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<DeliveryAddress[]>([]);
+  const [recentAddresses, setRecentAddresses] = useState<DeliveryAddress[]>([]);
 
   useEffect(() => {
     loadCart();
+    loadAddresses();
   }, []);
 
   const loadCart = async () => {
@@ -103,11 +106,18 @@ export const [CartContext, useCart] = createContextHook(() => {
     }
   };
 
-  const saveCart = async (newItems: CartItem[]) => {
+  const loadAddresses = async () => {
     try {
-      await AsyncStorage.setItem('cart', JSON.stringify(newItems));
+      const saved = await AsyncStorage.getItem('savedAddresses');
+      if (saved) {
+        setSavedAddresses(JSON.parse(saved));
+      }
+      const recent = await AsyncStorage.getItem('recentAddresses');
+      if (recent) {
+        setRecentAddresses(JSON.parse(recent));
+      }
     } catch (error) {
-      console.error('Failed to save cart:', error);
+      console.error('Failed to load addresses:', error);
     }
   };
 
@@ -151,6 +161,38 @@ export const [CartContext, useCart] = createContextHook(() => {
     saveCart([]);
   };
 
+  const addSavedAddress = async (address: DeliveryAddress) => {
+    const exists = savedAddresses.find(a => a.id === address.id);
+    if (exists) return;
+    const newSaved = [...savedAddresses, address];
+    setSavedAddresses(newSaved);
+    try {
+      await AsyncStorage.setItem('savedAddresses', JSON.stringify(newSaved));
+    } catch (error) {
+      console.error('Failed to save address:', error);
+    }
+  };
+
+  const removeSavedAddress = async (addressId: string) => {
+    const newSaved = savedAddresses.filter(a => a.id !== addressId);
+    setSavedAddresses(newSaved);
+    try {
+      await AsyncStorage.setItem('savedAddresses', JSON.stringify(newSaved));
+    } catch (error) {
+      console.error('Failed to remove address:', error);
+    }
+  };
+
+  const addRecentAddress = async (address: DeliveryAddress) => {
+    const newRecent = [address, ...recentAddresses.filter(a => a.id !== address.id)].slice(0, 5);
+    setRecentAddresses(newRecent);
+    try {
+      await AsyncStorage.setItem('recentAddresses', JSON.stringify(newRecent));
+    } catch (error) {
+      console.error('Failed to save recent address:', error);
+    }
+  };
+
   const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -158,6 +200,11 @@ export const [CartContext, useCart] = createContextHook(() => {
     items,
     deliveryAddress,
     setDeliveryAddress,
+    savedAddresses,
+    recentAddresses,
+    addSavedAddress,
+    removeSavedAddress,
+    addRecentAddress,
     addItem,
     removeItem,
     updateQuantity,
