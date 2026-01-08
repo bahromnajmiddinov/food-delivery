@@ -24,6 +24,9 @@ export default function DriverMapScreen() {
   });
   const [currentOrder, setCurrentOrder] = useState(mockOrders.find(o => ['picking_up', 'delivering'].includes(o.status)));
   const [isNavigating, setIsNavigating] = useState(false);
+  const [eta, setETA] = useState<string>('15 min');
+  const [distance, setDistance] = useState<string>('2.3 km');
+  const [navigationStep, setNavigationStep] = useState(0);
   
   const mapRef = useRef<MapView>(null);
 
