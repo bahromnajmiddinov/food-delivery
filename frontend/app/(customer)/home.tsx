@@ -8,23 +8,67 @@ import {
   Image,
   TextInput,
   Animated,
+  Modal,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Search, ChevronDown, Star, Clock, Bell, Settings } from 'lucide-react-native';
+import { Search, ChevronDown, Star, Clock, Bell, Settings, MapPin, Plus, Navigation } from 'lucide-react-native';
 import { mockRestaurants } from '@/mocks/restaurants';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, useCart } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
+import * as Location from 'expo-location';
+import { DeliveryAddress } from '@/types';
 
 export default function CustomerHomeScreen() {
   const { user } = useAuth();
+  const { deliveryAddress, setDeliveryAddress, savedAddresses, recentAddresses, addRecentAddress } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
   const [scrollY] = useState(new Animated.Value(0));
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
+
+  const getCurrentLocation = async () => {
+    try {
+      setLoadingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission denied', 'Location permission is required to get your current location');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({});
+      const address: DeliveryAddress = {
+        id: 'current-' + Date.now(),
+        label: 'Current Location',
+        address: 'Using current location',
+        coordinates: {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        },
+      };
+
+      setDeliveryAddress(address);
+      await addRecentAddress(address);
+      setShowAddressModal(false);
+    } catch (error) {
+      console.error('Error getting location:', error);
+      Alert.alert('Error', 'Failed to get current location');
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  const handleAddressSelect = (address: DeliveryAddress) => {
+    setDeliveryAddress(address);
+    addRecentAddress(address);
+    setShowAddressModal(false);
+  };
 
   const categories = [
     { id: '1', name: 'Restaurants', emoji: '🍔' },
@@ -54,14 +98,16 @@ export default function CustomerHomeScreen() {
               <Text style={styles.avatarText}>{user?.name.charAt(0).toUpperCase()}</Text>
             </View>
             <View style={styles.addressContainer}>
-              <TouchableOpacity style={styles.addressButton}>
-                <Text style={styles.addressLabel}>My address</Text>
-                <View style={styles.addressRow}>
-                  <Text style={styles.addressText}>Current location</Text>
-                  <ChevronDown size={16} color="#666" />
-                </View>
-              </TouchableOpacity>
-            </View>
+               <TouchableOpacity style={styles.addressButton} onPress={() => setShowAddressModal(true)}>
+                 <Text style={styles.addressLabel}>My address</Text>
+                 <View style={styles.addressRow}>
+                   <Text style={styles.addressText} numberOfLines={1}>
+                     {deliveryAddress?.address || 'Current location'}
+                   </Text>
+                   <ChevronDown size={16} color="#666" />
+                 </View>
+               </TouchableOpacity>
+             </View>
           </View>
           
           <View style={styles.statusBadge}>
@@ -223,11 +269,145 @@ export default function CustomerHomeScreen() {
               </View>
             </TouchableOpacity>
           ))}
-        </View>
-      </Animated.ScrollView>
-    </View>
-  );
-}
+          </View>
+          </Animated.ScrollView>
+
+          {/* Address Selection Modal */}
+          <Modal
+          visible={showAddressModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setShowAddressModal(false)}
+          >
+          <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowAddressModal(false)}
+          >
+          <SafeAreaView style={styles.modalContainer} edges={['bottom']}>
+           <TouchableOpacity activeOpacity={1}>
+             <View style={styles.modalHeader}>
+               <Text style={styles.modalTitle}>Select Delivery Address</Text>
+               <TouchableOpacity onPress={() => setShowAddressModal(false)}>
+                 <Text style={styles.modalClose}>✕</Text>
+               </TouchableOpacity>
+             </View>
+
+             <ScrollView style={styles.modalContent}>
+               {/* Current Location Option */}
+               <TouchableOpacity
+                 style={[
+                   styles.addressOption,
+                   deliveryAddress?.label === 'Current Location' && styles.addressOptionActive,
+                 ]}
+                 onPress={getCurrentLocation}
+                 disabled={loadingLocation}
+               >
+                 <View style={styles.addressOptionLeft}>
+                   <View style={styles.addressIcon}>
+                     <Navigation size={20} color={loadingLocation ? '#999' : '#7ED321'} />
+                   </View>
+                   <View style={styles.addressOptionText}>
+                     <Text style={styles.addressOptionLabel}>Use Current Location</Text>
+                     <Text style={styles.addressOptionSubtext}>
+                       {loadingLocation ? 'Getting location...' : 'Enable location access'}
+                     </Text>
+                   </View>
+                 </View>
+                 {deliveryAddress?.label === 'Current Location' && (
+                   <View style={styles.selectedIndicator}>
+                     <View style={styles.selectedDot} />
+                   </View>
+                 )}
+               </TouchableOpacity>
+
+               {/* Saved Addresses */}
+               {savedAddresses.length > 0 && (
+                 <View style={styles.addressSection}>
+                   <Text style={styles.addressSectionTitle}>Saved Addresses</Text>
+                   {savedAddresses.map((address) => (
+                     <TouchableOpacity
+                       key={address.id}
+                       style={[
+                         styles.addressOption,
+                         deliveryAddress?.id === address.id && styles.addressOptionActive,
+                       ]}
+                       onPress={() => handleAddressSelect(address)}
+                     >
+                       <View style={styles.addressOptionLeft}>
+                         <View style={styles.addressIcon}>
+                           <MapPin size={20} color={deliveryAddress?.id === address.id ? '#7ED321' : '#666'} />
+                         </View>
+                         <View style={styles.addressOptionText}>
+                           <Text style={styles.addressOptionLabel}>{address.label}</Text>
+                           <Text style={styles.addressOptionSubtext} numberOfLines={1}>
+                             {address.address}
+                           </Text>
+                         </View>
+                       </View>
+                       {deliveryAddress?.id === address.id && (
+                         <View style={styles.selectedIndicator}>
+                           <View style={styles.selectedDot} />
+                         </View>
+                       )}
+                     </TouchableOpacity>
+                   ))}
+                 </View>
+               )}
+
+               {/* Recent Addresses */}
+               {recentAddresses.length > 0 && (
+                 <View style={styles.addressSection}>
+                   <Text style={styles.addressSectionTitle}>Recent Addresses</Text>
+                   {recentAddresses.map((address) => (
+                     <TouchableOpacity
+                       key={address.id}
+                       style={[
+                         styles.addressOption,
+                         deliveryAddress?.id === address.id && styles.addressOptionActive,
+                       ]}
+                       onPress={() => handleAddressSelect(address)}
+                     >
+                       <View style={styles.addressOptionLeft}>
+                         <View style={styles.addressIcon}>
+                           <MapPin size={20} color={deliveryAddress?.id === address.id ? '#7ED321' : '#666'} />
+                         </View>
+                         <View style={styles.addressOptionText}>
+                           <Text style={styles.addressOptionLabel}>{address.label}</Text>
+                           <Text style={styles.addressOptionSubtext} numberOfLines={1}>
+                             {address.address}
+                           </Text>
+                         </View>
+                       </View>
+                       {deliveryAddress?.id === address.id && (
+                         <View style={styles.selectedIndicator}>
+                           <View style={styles.selectedDot} />
+                         </View>
+                       )}
+                     </TouchableOpacity>
+                   ))}
+                 </View>
+               )}
+
+               {/* Add New Address */}
+               <TouchableOpacity
+                 style={styles.addNewAddressButton}
+                 onPress={() => {
+                   setShowAddressModal(false);
+                   router.push('/(customer)/map-select');
+                 }}
+               >
+                 <Plus size={20} color="#7ED321" />
+                 <Text style={styles.addNewAddressText}>Add New Address on Map</Text>
+               </TouchableOpacity>
+             </ScrollView>
+           </TouchableOpacity>
+          </SafeAreaView>
+          </TouchableOpacity>
+          </Modal>
+          </View>
+          );
+          }
 
 const styles = StyleSheet.create({
   container: {
@@ -562,6 +742,120 @@ const styles = StyleSheet.create({
   },
   featuredTag: {
     fontSize: 12,
+    fontWeight: '600',
+    color: '#7ED321',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  modalClose: {
+    fontSize: 24,
+    color: '#666',
+    fontWeight: '300',
+  },
+  modalContent: {
+    padding: 20,
+  },
+  addressSection: {
+    marginBottom: 24,
+  },
+  addressSectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999',
+    marginBottom: 12,
+    textTransform: 'uppercase',
+  },
+  addressOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#F8F8F8',
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  addressOptionActive: {
+    backgroundColor: '#F0FBE3',
+    borderWidth: 2,
+    borderColor: '#7ED321',
+  },
+  addressOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  addressIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addressOptionText: {
+    flex: 1,
+  },
+  addressOptionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginBottom: 2,
+  },
+  addressOptionSubtext: {
+    fontSize: 13,
+    color: '#666',
+  },
+  selectedIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#7ED321',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+  },
+  addNewAddressButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 16,
+    backgroundColor: '#F0FBE3',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#7ED321',
+    borderStyle: 'dashed',
+  },
+  addNewAddressText: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#7ED321',
   },
