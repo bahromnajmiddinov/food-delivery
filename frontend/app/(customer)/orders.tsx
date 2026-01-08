@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { mockOrders } from '@/mocks/orders';
-import { MapPin, Clock, CheckCircle, Truck, Package, ChefHat } from 'lucide-react-native';
-import { router } from 'expo-router';
+import { MapPin, Clock, CheckCircle, Truck, Package, ChefHat, Navigation, Zap } from 'lucide-react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useDriver } from '@/contexts/DriverContext';
 import { fetchDirections } from '@/lib/googleDirections';
@@ -73,12 +72,112 @@ const getStatusConfig = (status: string) => {
 
 export default function CustomerOrdersScreen() {
   const [selected, setSelected] = useState<string | null>(null);
+  const [isLiveTracking, setIsLiveTracking] = useState(false);
+  const [driverSpeed, setDriverSpeed] = useState<number>(0);
+  const [distanceRemaining, setDistanceRemaining] = useState<string>('Calculating...');
+  const [estimatedArrival, setEstimatedArrival] = useState<string>('Calculating...');
+  
+  const mapRef = useRef<MapView>(null);
+  const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const driverPositionRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  
   const driver = useDriver();
   const [routeCoords, setRouteCoords] = useState<{ latitude: number; longitude: number }[] | null>(null);
-  const [etaText, setEtaText] = useState<string | null>(null);
-  const [directionsLoading, setDirectionsLoading] = useState(false);
+  
+  // Stop live tracking
+  const stopLiveTracking = useCallback(() => {
+    if (trackingIntervalRef.current) {
+      clearInterval(trackingIntervalRef.current);
+      trackingIntervalRef.current = null;
+    }
+    setIsLiveTracking(false);
+    setDriverSpeed(0);
+  }, []);
+  
+  // Start live tracking
+  const startLiveTracking = useCallback((order: any) => {
+    if (!order.driverName || !driver.location) return;
+    
+    setIsLiveTracking(true);
+    
+    // Initialize driver position
+    if (driver.location) {
+      driverPositionRef.current = driver.location;
+    }
+    
+    // Set up interval for location updates
+    trackingIntervalRef.current = setInterval(() => {
+      // Simulate driver movement towards destination
+      if (driverPositionRef.current && order.deliveryAddress.coordinates) {
+        const current = driverPositionRef.current;
+        const destination = order.deliveryAddress.coordinates;
+        
+        // Calculate new position (simplified movement simulation)
+        const distance = Math.sqrt(
+          Math.pow(destination.latitude - current.latitude, 2) + 
+          Math.pow(destination.longitude - current.longitude, 2)
+        );
+        
+        if (distance > 0.0001) { // If not at destination
+          const speed = 0.00005 + Math.random() * 0.00002; // Random speed
+          const newLat = current.latitude + (destination.latitude - current.latitude) * speed / distance;
+          const newLng = current.longitude + (destination.longitude - current.longitude) * speed / distance;
+          
+          const newPosition = { latitude: newLat, longitude: newLng };
+          driverPositionRef.current = newPosition;
+          
+          // Update driver speed (simulate realistic speed)
+          setDriverSpeed(25 + Math.random() * 20); // 25-45 km/h
+          
+          // Calculate remaining distance
+          const remainingDistance = distance * 111; // Rough km conversion
+          setDistanceRemaining(`${remainingDistance.toFixed(1)} km`);
+          
+          // Update ETA
+          const etaMinutes = remainingDistance / 30 * 60; // Assume 30 km/h average
+          const arrivalTime = new Date(Date.now() + etaMinutes * 60000);
+          setEstimatedArrival(arrivalTime.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }));
+          
+          // Follow driver on map
+          mapRef.current?.animateToRegion({
+            ...newPosition,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02
+          }, 1000);
+        } else {
+          // Driver has arrived
+          stopLiveTracking();
+          setDistanceRemaining('Arrived');
+          setEstimatedArrival('Delivered');
+        }
+      }
+    }, 2000); // Update every 2 seconds
+  }, [driver, stopLiveTracking]);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopLiveTracking();
+    };
+  }, [stopLiveTracking]);
+  
+  // Start tracking when modal opens
+  useEffect(() => {
+    if (selected) {
+      const order = mockOrders.find(x => x.id === selected);
+      if (order && (order.status === 'picking_up' || order.status === 'delivering')) {
+        setTimeout(() => startLiveTracking(order), 1000);
+      }
+    } else {
+      stopLiveTracking();
+    }
+  }, [selected, startLiveTracking, stopLiveTracking]);
+  
   // wire effects
-  useDirectionsEffects(driver, selected, setRouteCoords, setEtaText, setDirectionsLoading);
+  useDirectionsEffects(driver, selected, setRouteCoords, null, null);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -204,9 +303,56 @@ export default function CustomerOrdersScreen() {
                     </View>
                   </View>
 
-                  {/* Map Section */}
+                  {/* Enhanced Map Section */}
                   <View style={styles.mapContainer}>
+                    {/* Live Tracking Header */}
+                    <View style={styles.trackingHeader}>
+                      <View style={styles.trackingInfo}>
+                        {isLiveTracking ? (
+                          <View style={styles.liveIndicator}>
+                            <View style={styles.liveDot} />
+                            <Text style={styles.liveText}>LIVE</Text>
+                          </View>
+                        ) : (
+                          <View style={styles.staticIndicator}>
+                            <Navigation size={14} color="#666" />
+                            <Text style={styles.staticText}>Static view</Text>
+                          </View>
+                        )}
+                        {isLiveTracking && (
+                          <View style={styles.trackingStats}>
+                            <View style={styles.statItem}>
+                              <Text style={styles.statValue}>{driverSpeed.toFixed(0)}</Text>
+                              <Text style={styles.statLabel}>km/h</Text>
+                            </View>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                              <Text style={styles.statValue}>{distanceRemaining}</Text>
+                              <Text style={styles.statLabel}>remaining</Text>
+                            </View>
+                            <View style={styles.statDivider} />
+                            <View style={styles.statItem}>
+                              <Text style={styles.statValue}>{estimatedArrival}</Text>
+                              <Text style={styles.statLabel}>ETA</Text>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                      
+                      <TouchableOpacity 
+                        style={styles.trackingToggle}
+                        onPress={() => isLiveTracking ? stopLiveTracking() : startLiveTracking(o)}
+                      >
+                        {isLiveTracking ? (
+                          <Zap size={16} color="#5CB338" />
+                        ) : (
+                          <Navigation size={16} color="#007AFF" />
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                    
                     <MapView
+                      ref={mapRef}
                       provider={PROVIDER_DEFAULT}
                       style={styles.map}
                       initialRegion={{
@@ -215,32 +361,96 @@ export default function CustomerOrdersScreen() {
                         latitudeDelta: 0.03,
                         longitudeDelta: 0.03,
                       }}
+                      showsUserLocation={true}
+                      followsUserLocation={isLiveTracking}
+                      showsTraffic={true}
                     >
-                      {/* Restaurant marker */}
+                      {/* Kitchen/Restaurant Marker */}
                       {o.restaurant.coordinates && (
-                        <Marker coordinate={o.restaurant.coordinates} title={o.restaurant.name} pinColor="#5CB338" />
+                        <Marker 
+                          coordinate={o.restaurant.coordinates} 
+                          title={`${o.restaurant.name} (Kitchen)`}
+                          pinColor="#5CB338"
+                        >
+                          <View style={styles.kitchenMarker}>
+                            <ChefHat size={20} color="#fff" />
+                          </View>
+                        </Marker>
                       )}
 
-                      {/* Delivery address marker */}
-                      <Marker coordinate={o.deliveryAddress.coordinates} title="Delivery location" />
+                      {/* Customer Location Marker */}
+                      <Marker 
+                        coordinate={o.deliveryAddress.coordinates} 
+                        title="Delivery Location"
+                        pinColor="#FF6B35"
+                      >
+                        <View style={styles.customerMarker}>
+                          <MapPin size={20} color="#fff" />
+                        </View>
+                      </Marker>
 
-                      {/* Driver location */}
-                      {driver?.location && (
-                        <Marker coordinate={driver.location} title="Driver" pinColor="#007AFF" />
+                      {/* Driver Location Marker with Live Animation */}
+                      {(driver?.location || driverPositionRef.current) && (
+                        <Marker
+                          coordinate={driverPositionRef.current || driver.location!}
+                          title="Driver"
+                          pinColor="#007AFF"
+                          anchor={{ x: 0.5, y: 0.5 }}
+                        >
+                          <View style={[
+                            styles.driverMarkerContainer,
+                            isLiveTracking && styles.driverMarkerLiveContainer
+                          ]}>
+                            <View style={[
+                              styles.driverMarkerInner,
+                              isLiveTracking && styles.driverMarkerLive
+                            ]}>
+                              <Truck size={18} color="#fff" />
+                              {isLiveTracking && (
+                                <View style={styles.driverPulse} />
+                              )}
+                            </View>
+                          </View>
+                        </Marker>
                       )}
 
-                      {/* Route polyline */}
+                      {/* Dynamic Route Polyline */}
                       {routeCoords && routeCoords.length > 0 && (
-                        <Polyline coordinates={routeCoords} strokeColor="#007AFF" strokeWidth={4} />
+                        <Polyline 
+                          coordinates={routeCoords} 
+                          strokeColor="#007AFF" 
+                          strokeWidth={4}
+                          lineDashPattern={[5, 5]}
+                        />
+                      )}
+                      
+                      {/* Alternative route from driver's current position */}
+                      {(isLiveTracking && driverPositionRef.current) && (
+                        <Polyline
+                          coordinates={[
+                            driverPositionRef.current,
+                            o.deliveryAddress.coordinates
+                          ]}
+                          strokeColor="#FFB800"
+                          strokeWidth={3}
+                          lineDashPattern={[10, 10]}
+                        />
                       )}
                     </MapView>
                     
-                    {/* Map Info Overlay */}
-                    <View style={styles.mapOverlay}>
-                      <View style={styles.mapInfo}>
-                        <Text style={styles.mapInfoText}>
-                          {directionsLoading ? 'Loading route...' : (etaText || 'Calculating...')}
-                        </Text>
+                    {/* Map Legend */}
+                    <View style={styles.mapLegend}>
+                      <View style={styles.legendItem}>
+                        <View style={[styles.legendMarker, { backgroundColor: '#5CB338' }]} />
+                        <Text style={styles.legendText}>Kitchen</Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <View style={[styles.legendMarker, { backgroundColor: '#FF6B35' }]} />
+                        <Text style={styles.legendText}>Customer</Text>
+                      </View>
+                      <View style={styles.legendItem}>
+                        <View style={[styles.legendMarker, { backgroundColor: '#007AFF' }]} />
+                        <Text style={styles.legendText}>Driver</Text>
                       </View>
                     </View>
                   </View>
@@ -332,8 +542,16 @@ export default function CustomerOrdersScreen() {
                     <TouchableOpacity style={styles.actionButton} onPress={() => setSelected(null)}>
                       <Text style={styles.actionButtonText}>Close</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.primaryActionButton, { backgroundColor: statusConfig.color }]} onPress={() => { setSelected(null); router.push(`/`); }}>
-                      <Text style={styles.primaryActionButtonText}>Track Order</Text>
+                    <TouchableOpacity 
+                      style={[
+                        styles.primaryActionButton, 
+                        { backgroundColor: isLiveTracking ? '#5CB338' : statusConfig.color }
+                      ]} 
+                      onPress={() => isLiveTracking ? stopLiveTracking() : startLiveTracking(o)}
+                    >
+                      <Text style={styles.primaryActionButtonText}>
+                        {isLiveTracking ? 'Stop Tracking' : 'Track Live'}
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 </>
@@ -658,6 +876,153 @@ const styles = StyleSheet.create({
   map: {
     height: 200,
   },
+  
+  // Live Tracking Header
+  trackingHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  trackingInfo: {
+    flex: 1,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF4444',
+  },
+  liveText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FF4444',
+    letterSpacing: 0.5,
+  },
+  staticIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  staticText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  trackingStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  statItem: {
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  statLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#666',
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#E0E0E0',
+  },
+  trackingToggle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Custom Markers
+  kitchenMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#5CB338',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  customerMarker: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FF6B35',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  driverMarkerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverMarkerLiveContainer: {
+    transform: [{ scale: 1.1 }],
+  },
+  driverMarkerInner: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+    position: 'relative',
+  },
+  driverMarkerLive: {
+    backgroundColor: '#5CB338',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  driverPulse: {
+    position: 'absolute',
+    top: -5,
+    left: -5,
+    right: -5,
+    bottom: -5,
+    borderRadius: 23,
+    borderWidth: 2,
+    borderColor: '#5CB338',
+    opacity: 0.6,
+  },
   mapOverlay: {
     position: 'absolute',
     top: 12,
@@ -675,6 +1040,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#1A1A1A',
+  },
+
+  // Map Legend
+  mapLegend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    gap: 20,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendMarker: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  legendText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
   },
 
   // Modal Content
