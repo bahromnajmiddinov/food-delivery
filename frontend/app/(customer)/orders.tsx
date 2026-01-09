@@ -8,6 +8,61 @@ import { useDriver } from '@/contexts/DriverContext';
 import { fetchDirections } from '@/lib/googleDirections';
 import { GOOGLE_MAPS_API_KEY } from '@/lib/config';
 
+// Hook to handle directions fetching
+function useDirectionsEffects(
+  driver: { location: { latitude: number; longitude: number } | null },
+  selectedOrderId: string | null,
+  setRouteCoords: React.Dispatch<React.SetStateAction<{ latitude: number; longitude: number }[] | null>>,
+  _setDirectionsLoading: ((loading: boolean) => void) | null,
+  _setDirectionsError: ((error: string | null) => void) | null
+) {
+  useEffect(() => {
+    if (!selectedOrderId) {
+      setRouteCoords(null);
+      return;
+    }
+
+    const order = mockOrders.find(x => x.id === selectedOrderId);
+    if (!order || !order.restaurant.coordinates || !order.deliveryAddress.coordinates) {
+      return;
+    }
+
+    // Only fetch directions for active orders
+    if (order.status !== 'picking_up' && order.status !== 'delivering') {
+      return;
+    }
+
+    const fetchRoute = async () => {
+      if (_setDirectionsLoading) {
+        _setDirectionsLoading(true);
+      }
+
+      try {
+        const result = await fetchDirections(
+          order.restaurant.coordinates,
+          order.deliveryAddress.coordinates,
+          GOOGLE_MAPS_API_KEY
+        );
+
+        if (result.coords && result.coords.length > 0) {
+          setRouteCoords(result.coords);
+        }
+      } catch (error) {
+        console.warn('Failed to fetch directions:', error);
+        if (_setDirectionsError) {
+          _setDirectionsError('Failed to load route');
+        }
+      } finally {
+        if (_setDirectionsLoading) {
+          _setDirectionsLoading(false);
+        }
+      }
+    };
+
+    fetchRoute();
+  }, [selectedOrderId, driver, setRouteCoords, _setDirectionsLoading, _setDirectionsError]);
+}
+
 // Status configuration with Yandex-style colors and icons
 const getStatusConfig = (status: string) => {
   switch (status) {
