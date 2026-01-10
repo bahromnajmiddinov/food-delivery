@@ -44,6 +44,18 @@ export default function DriverLayout() {
           tabBarIcon: ({ color }) => <User size={24} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
