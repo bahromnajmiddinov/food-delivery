@@ -77,6 +77,7 @@ export default function CustomerOrdersScreen() {
   const [distanceRemaining, setDistanceRemaining] = useState<string>('Calculating...');
   const [estimatedArrival, setEstimatedArrival] = useState<string>('Calculating...');
   const [directionsLoading, setDirectionsLoading] = useState<boolean>(false);
+  const [etaText, setEtaText] = useState<string>('Calculating...');
   
   const mapRef = useRef<MapView>(null);
   const trackingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -178,7 +179,7 @@ export default function CustomerOrdersScreen() {
   }, [selected, startLiveTracking, stopLiveTracking]);
   
   // wire effects
-  useDirectionsEffects(driver, selected, setRouteCoords, null, setDirectionsLoading);
+  useDirectionsEffects(driver, selected, setRouteCoords, setEtaText, setDirectionsLoading);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
