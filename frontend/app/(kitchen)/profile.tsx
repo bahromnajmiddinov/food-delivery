@@ -33,25 +33,25 @@ export default function RestaurantProfile() {
       </View>
 
       <View style={styles.sectionsList}>
-        <Pressable style={styles.item} onPress={() => router.push('/(restaurant)/dashboard')}>
+        <Pressable style={styles.item} onPress={() => router.push('/(kitchen)/dashboard')}>
           <Coffee width={18} height={18} />
           <Text style={styles.itemText}>Dashboard</Text>
         </Pressable>
-        <Pressable style={styles.item} onPress={() => router.push('/(restaurant)/kitchen')}>
+        <Pressable style={styles.item} onPress={() => router.push('/(kitchen)/kitchen')}>
           <List width={18} height={18} />
           <Text style={styles.itemText}>Kitchen</Text>
         </Pressable>
-        <Pressable style={styles.item} onPress={() => router.push('/(restaurant)/orders')}>
+        <Pressable style={styles.item} onPress={() => router.push('/(kitchen)/orders')}>
           <List width={18} height={18} />
           <Text style={styles.itemText}>Orders</Text>
         </Pressable>
-        <Pressable style={styles.item} onPress={() => router.push('/(restaurant)/settings')}>
+        <Pressable style={styles.item} onPress={() => router.push('/(kitchen)/settings')}>
           <Settings width={18} height={18} />
           <Text style={styles.itemText}>Settings</Text>
         </Pressable>
       </View>
 
-      <Pressable style={styles.helperButton} onPress={() => router.push('/(restaurant)/support') }>
+      <Pressable style={styles.helperButton} onPress={() => router.push('/(kitchen)/support') }>
         <MessageCircle width={18} height={18} color="#fff" />
         <Text style={styles.helperText}>Online helper</Text>
       </Pressable>

@@ -155,26 +155,48 @@ export default function CustomerHomeScreen() {
         )}
         scrollEventThrottle={16}
       >
-        {promoCards.map((promo) => (
-          <TouchableOpacity key={promo.id} style={styles.promoCard}>
-            <View style={[styles.promoContent, { backgroundColor: promo.color }]}>
-              <View style={styles.promoText}>
-                <Text style={styles.promoTitle}>{promo.title}</Text>
-                <View style={styles.promoSubtitleRow}>
-                  <View style={styles.promoBadge}>
-                    <Text style={styles.promoBadgeText}>{promo.restaurant}</Text>
+        {promoCards.map((promo) => {
+          const restaurant = mockRestaurants.find(r => r.name === promo.restaurant);
+          return (
+            <TouchableOpacity 
+              key={promo.id} 
+              style={styles.promoCard}
+              onPress={() => restaurant && router.push(`/restaurant-detail?id=${restaurant.id}` as any)}
+            >
+              <View style={[styles.promoContent, { backgroundColor: promo.color }]}>
+                <View style={styles.promoText}>
+                  <Text style={styles.promoTitle}>{promo.title}</Text>
+                  <View style={styles.promoSubtitleRow}>
+                    <View style={styles.promoBadge}>
+                      <Text style={styles.promoBadgeText}>{promo.restaurant}</Text>
+                    </View>
+                    <Text style={styles.promoDiscount}>{promo.subtitle}</Text>
                   </View>
-                  <Text style={styles.promoDiscount}>{promo.subtitle}</Text>
                 </View>
+                <Image source={{ uri: promo.image }} style={styles.promoImage} />
               </View>
-              <Image source={{ uri: promo.image }} style={styles.promoImage} />
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          );
+        })}
 
         <View style={styles.categoriesContainer}>
           {categories.map((category) => (
-            <TouchableOpacity key={category.id} style={styles.categoryCard}>
+            <TouchableOpacity 
+              key={category.id} 
+              style={styles.categoryCard}
+              onPress={() => {
+                // Navigate to search with category filter
+                if (category.name === 'Restaurants') {
+                  router.push('/(customer)/restaurant-detail?id=' + mockRestaurants[0].id as any);
+                } else if (category.name === 'Shops') {
+                  // For shops, show a message or navigate to a shops page
+                  console.log('Shops category selected');
+                } else if (category.name === 'Offers') {
+                  // For offers, could navigate to offers page
+                  console.log('Offers category selected');
+                }
+              }}
+            >
               <Text style={styles.categoryEmoji}>{category.emoji}</Text>
               <Text style={styles.categoryName}>{category.name}</Text>
             </TouchableOpacity>
@@ -184,7 +206,7 @@ export default function CustomerHomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Popular restaurants</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(customer)/restaurant-list' as any)}>
               <Text style={styles.seeAll}>All</Text>
             </TouchableOpacity>
           </View>
@@ -232,12 +254,7 @@ export default function CustomerHomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Worth Trying</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAll}>All</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.sectionTitle}>Worth Trying</Text>
 
           {mockRestaurants.slice(0, 2).map((restaurant) => (
             <TouchableOpacity

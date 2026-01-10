@@ -106,6 +106,14 @@ export const [CartContext, useCart] = createContextHook(() => {
     }
   };
 
+  const saveCart = async (cartItems: CartItem[]) => {
+    try {
+      await AsyncStorage.setItem('cart', JSON.stringify(cartItems));
+    } catch (error) {
+      console.error('Failed to save cart:', error);
+    }
+  };
+
   const loadAddresses = async () => {
     try {
       const saved = await AsyncStorage.getItem('savedAddresses');

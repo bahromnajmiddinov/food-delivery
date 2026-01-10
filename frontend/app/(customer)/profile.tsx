@@ -24,17 +24,6 @@ export default function CustomerProfile() {
         </Pressable>
       </View>
 
-      <View style={styles.infoRow}>
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Balans</Text>
-          <Text style={styles.infoValue}>450 000 UZS</Text>
-        </View>
-        <View style={styles.infoCardAlt}>
-          <Text style={styles.infoTitle}>Oxirgi tushum</Text>
-          <Text style={[styles.infoValue, { color: '#16a34a' }]}>+65 000 UZS</Text>
-        </View>
-      </View>
-
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Notifications</Text>
@@ -63,10 +52,6 @@ export default function CustomerProfile() {
         <Pressable style={styles.item} onPress={() => router.push('/(customer)/orders')}>
           <List width={18} height={18} />
           <Text style={styles.itemText}>Orders</Text>
-        </Pressable>
-        <Pressable style={styles.item} onPress={() => router.push('/(customer)/income')}>
-          <DollarSign width={18} height={18} />
-          <Text style={styles.itemText}>Income</Text>
         </Pressable>
       </View>
 

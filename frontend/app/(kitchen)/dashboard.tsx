@@ -32,9 +32,9 @@ export default function RestaurantDashboard() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Pending orders</Text>
         {pending.slice(0, 6).map(o => (
-          <Pressable key={o.id} style={styles.row} onPress={() => router.push(`/(restaurant)/orders/${o.id}`)}>
+          <Pressable key={o.id} style={styles.row} onPress={() => router.push(`/(kitchen)/orders/${o.id}`)}>
             <Text style={styles.rowText}>{o.id} — {o.status}</Text>
-            <Text style={styles.rowSub}>{o.customer?.name || o.address}</Text>
+            <Text style={styles.rowSub}>{o.customerName || o.deliveryAddress?.address}</Text>
           </Pressable>
         ))}
       </View>
