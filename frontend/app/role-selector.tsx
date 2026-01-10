@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,11 @@ export default function RoleSelectorScreen() {
   const { verifyOTP } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>('customer');
   const [name, setName] = useState('');
-  const [scaleAnims] = useState({
+  const [scaleAnims] = useState(() => ({
     customer: new Animated.Value(1),
     driver: new Animated.Value(1),
-    restaurant: new Animated.Value(1),
-  });
+    kitchen_staff: new Animated.Value(1),
+  }));
 
   const roles: { type: UserRole; icon: any; title: string; description: string }[] = [
     {
@@ -47,13 +47,16 @@ export default function RoleSelectorScreen() {
   const handleRolePress = (role: UserRole) => {
     setSelectedRole(role);
     
+    const anim = scaleAnims[role];
+    if (!anim) return;
+    
     Animated.sequence([
-      Animated.timing(scaleAnims[role], {
+      Animated.timing(anim, {
         toValue: 0.95,
         duration: 100,
         useNativeDriver: true,
       }),
-      Animated.timing(scaleAnims[role], {
+      Animated.timing(anim, {
         toValue: 1,
         duration: 100,
         useNativeDriver: true,
@@ -70,7 +73,7 @@ export default function RoleSelectorScreen() {
       } else if (selectedRole === 'driver') {
         router.replace('/(driver)/map');
       } else if (selectedRole === 'kitchen_staff') {
-        router.replace('/_kitchen/kitchen');
+        router.replace('/(kitchen)/kitchen');
       }
     }
   };

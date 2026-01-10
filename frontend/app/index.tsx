@@ -32,8 +32,8 @@ export default function Index() {
   }
 
   if (user.role === 'kitchen_staff') {
-    console.log('🍳 Kitchen staff detected, redirecting to /_kitchen/kitchen');
-    return <Redirect href="/_kitchen/kitchen" />;
+    console.log('🍳 Kitchen staff detected, redirecting to /(kitchen)/kitchen');
+    return <Redirect href="/(kitchen)/kitchen" />;
   }
 
   console.log('⚠️ Unknown state, redirecting to /login');
