@@ -206,7 +206,7 @@ export default function CustomerHomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Popular restaurants</Text>
-            <TouchableOpacity onPress={() => router.push('/(customer)/restaurant-detail?id=' + mockRestaurants[0].id as any)}>
+            <TouchableOpacity onPress={() => router.push('/(customer)/restaurant-list' as any)}>
               <Text style={styles.seeAll}>All</Text>
             </TouchableOpacity>
           </View>
@@ -254,12 +254,7 @@ export default function CustomerHomeScreen() {
         </View>
 
         <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Worth Trying</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAll}>All</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.sectionTitle}>Worth Trying</Text>
 
           {mockRestaurants.slice(0, 2).map((restaurant) => (
             <TouchableOpacity
