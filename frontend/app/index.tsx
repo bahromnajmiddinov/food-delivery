@@ -31,9 +31,9 @@ export default function Index() {
     return <Redirect href="/(driver)/map" />;
   }
 
-  if (user.role === 'restaurant') {
-    console.log('🍳 Restaurant detected, redirecting to /(restaurant)/kitchen');
-    return <Redirect href="/(restaurant)/kitchen" />;
+  if (user.role === 'kitchen_staff') {
+    console.log('🍳 Kitchen staff detected, redirecting to /_kitchen/kitchen');
+    return <Redirect href="/_kitchen/kitchen" />;
   }
 
   console.log('⚠️ Unknown state, redirecting to /login');

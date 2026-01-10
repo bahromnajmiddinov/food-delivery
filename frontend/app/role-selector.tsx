@@ -37,9 +37,9 @@ export default function RoleSelectorScreen() {
       description: 'Deliver orders to customers',
     },
     {
-      type: 'restaurant',
+      type: 'kitchen_staff',
       icon: UtensilsCrossed,
-      title: 'Restaurant',
+      title: 'Kitchen Staff',
       description: 'Manage kitchen and orders',
     },
   ];
@@ -69,8 +69,8 @@ export default function RoleSelectorScreen() {
         router.replace('/(customer)/home');
       } else if (selectedRole === 'driver') {
         router.replace('/(driver)/map');
-      } else if (selectedRole === 'restaurant') {
-        router.replace('/(restaurant)/kitchen');
+      } else if (selectedRole === 'kitchen_staff') {
+        router.replace('/_kitchen/kitchen');
       }
     }
   };
