@@ -7,14 +7,12 @@ import {
   TouchableOpacity,
   Image,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Star, Clock, MapPin, Plus, Minus, X, ShoppingCart } from 'lucide-react-native';
-import { mockRestaurants, mockMenuItems } from '@/mocks/restaurants';
-import { mockReviews } from '@/mocks/reviews';
-import { mockOrders } from '@/mocks/orders';
-import { useDriver } from '@/contexts/DriverContext';
+import { useRestaurantDetail, useMenuItems } from '@/hooks/useApi';
 import { useCart } from '@/contexts/AuthContext';
 import { MenuItem } from '@/types';
 
@@ -25,14 +23,42 @@ export default function RestaurantDetailScreen() {
   const [quantity, setQuantity] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState('All');
 
-  const restaurant = mockRestaurants.find(r => r.id === id);
-  const menuItems = mockMenuItems.filter(item => item.restaurantId === id);
-  
-  const categories = ['All', ...Array.from(new Set(menuItems.map(item => item.category)))];
+  // Get restaurant and menu items from API
+  const { data: restaurantData, isLoading: isLoadingRestaurant, error: restaurantError } = useRestaurantDetail(typeof id === 'string' ? parseInt(id) : null);
+  const { data: menuItemsData, isLoading: isLoadingMenu, error: menuError } = useMenuItems(typeof id === 'string' ? parseInt(id) : null);
 
-  const filteredItems = selectedCategory === 'All' 
-    ? menuItems 
-    : menuItems.filter(item => item.category === selectedCategory);
+  const restaurant = restaurantData;
+  const menuItems = menuItemsData || [];
+
+  const categories = ['All', ...Array.from(new Set(menuItems.map((item: MenuItem) => item.category)))];
+
+  const filteredItems = selectedCategory === 'All'
+    ? menuItems
+    : menuItems.filter((item: MenuItem) => item.category === selectedCategory);
+
+  const isLoading = isLoadingRestaurant || isLoadingMenu;
+  const error = restaurantError || menuError;
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#7ED321" />
+          <Text style={styles.loadingText}>Loading restaurant details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load restaurant details</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!restaurant) {
     return (
@@ -49,12 +75,6 @@ export default function RestaurantDetailScreen() {
       setQuantity(1);
     }
   };
-
-  // Try to find an active order for this restaurant to show ETA
-  const activeOrder = mockOrders.find(o => o.restaurantId === id && ['preparing', 'picking_up', 'delivering'].includes(o.status));
-  const driverCtx = useDriver();
-  const estimateETA = driverCtx?.estimateETA;
-  const eta = activeOrder && estimateETA ? estimateETA(activeOrder.deliveryAddress.coordinates, activeOrder.preparationTime || 0) : null;
 
   return (
     <View style={styles.container}>
@@ -86,7 +106,7 @@ export default function RestaurantDetailScreen() {
                   <Text style={styles.rating}>{restaurant.rating}</Text>
                   <Text style={styles.metaSeparator}>•</Text>
                   <Clock size={16} color="#999" />
-                  <Text style={styles.metaText}>{restaurant.deliveryTime}</Text>
+                  <Text style={styles.metaText}>{restaurant.delivery_time}</Text>
                   <Text style={styles.metaSeparator}>•</Text>
                   <MapPin size={16} color="#999" />
                   <Text style={styles.metaText}>{restaurant.distance}</Text>
@@ -639,5 +659,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
   },
 });
