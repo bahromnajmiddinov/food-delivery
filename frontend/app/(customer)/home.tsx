@@ -10,14 +10,15 @@ import {
   Animated,
   Modal,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Search, ChevronDown, Star, Clock, Bell, Settings, MapPin, Plus, Navigation } from 'lucide-react-native';
-import { mockRestaurants } from '@/mocks/restaurants';
 import { useAuth, useCart } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
-import { DeliveryAddress } from '@/types';
+import { DeliveryAddress, Restaurant } from '@/types';
+import { useRestaurants, usePopularRestaurants } from '@/hooks/useApi';
 
 export default function CustomerHomeScreen() {
   const { user } = useAuth();
@@ -26,6 +27,14 @@ export default function CustomerHomeScreen() {
   const [scrollY] = useState(new Animated.Value(0));
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(false);
+  
+  // API Data
+  const { data: restaurantsData, isLoading: isLoadingRestaurants, error: restaurantsError } = useRestaurants();
+  const { data: popularRestaurantsData, isLoading: isLoadingPopular, error: popularError } = usePopularRestaurants();
+  
+  // Extract restaurants from API response
+  const restaurants = restaurantsData?.results || [];
+  const popularRestaurants = popularRestaurantsData?.results || [];
 
   const headerOpacity = scrollY.interpolate({
     inputRange: [0, 100],
@@ -212,11 +221,11 @@ export default function CustomerHomeScreen() {
           </View>
 
           <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.restaurantList}
+           horizontal
+           showsHorizontalScrollIndicator={false}
+           contentContainerStyle={styles.restaurantList}
           >
-            {mockRestaurants.map((restaurant) => (
+           {restaurants.map((restaurant: Restaurant) => (
               <TouchableOpacity
                 key={restaurant.id}
                 style={styles.restaurantCard}
@@ -237,13 +246,13 @@ export default function CustomerHomeScreen() {
                   <View style={styles.restaurantMeta}>
                     <Clock size={14} color="#999" />
                     <Text style={styles.restaurantMetaText}>
-                      {restaurant.deliveryTime}
+                      {restaurant.delivery_time}
                     </Text>
                   </View>
-                  {restaurant.tags.length > 0 && (
+                  {restaurant.tags && restaurant.tags.length > 0 && (
                     <View style={styles.tagContainer}>
                       <Text style={styles.tag} numberOfLines={1}>
-                        {restaurant.tags[0]}
+                        {restaurant.tags[0].name}
                       </Text>
                     </View>
                   )}
@@ -256,7 +265,7 @@ export default function CustomerHomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Worth Trying</Text>
 
-          {mockRestaurants.slice(0, 2).map((restaurant) => (
+          {popularRestaurants.slice(0, 2).map((restaurant: Restaurant) => (
             <TouchableOpacity
               key={restaurant.id}
               style={styles.featuredCard}
@@ -276,17 +285,40 @@ export default function CustomerHomeScreen() {
                 <Text style={styles.featuredName}>{restaurant.name}</Text>
                 <View style={styles.featuredMeta}>
                   <Clock size={14} color="#666" />
-                  <Text style={styles.featuredMetaText}>{restaurant.deliveryTime}</Text>
+                  <Text style={styles.featuredMetaText}>{restaurant.delivery_time}</Text>
                 </View>
-                {restaurant.tags.length > 0 && (
+                {restaurant.tags && restaurant.tags.length > 0 && (
                   <View style={styles.featuredTagContainer}>
-                    <Text style={styles.featuredTag}>{restaurant.tags[0]}</Text>
+                    <Text style={styles.featuredTag}>{restaurant.tags[0].name}</Text>
                   </View>
                 )}
               </View>
             </TouchableOpacity>
           ))}
           </View>
+
+          {/* Loading indicator */}
+          {(isLoadingRestaurants || isLoadingPopular) && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#7ED321" />
+              <Text style={styles.loadingText}>Loading restaurants...</Text>
+            </View>
+          )}
+
+          {/* Error handling */}
+          {(restaurantsError || popularError) && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>Failed to load restaurants</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => {
+                  // Retry logic would go here
+                }}
+              >
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           </Animated.ScrollView>
 
           {/* Address Selection Modal */}
@@ -876,4 +908,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#7ED321',
   },
-});
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+    marginBottom: 10,
+  },
+  retryButton: {
+    backgroundColor: '#7ED321',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  });

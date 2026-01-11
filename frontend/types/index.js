@@ -10,18 +10,25 @@ export interface User {
 }
 
 export interface Restaurant {
-  id: string;
+  id: number;
   name: string;
   image: string;
-  rating: number;
-  deliveryTime: string;
-  tags: string[];
   logo: string;
+  rating: number;
+  delivery_time: string;
   distance?: string;
-  coordinates?: {
-    latitude: number;
-    longitude: number;
-  };
+  latitude?: number;
+  longitude?: number;
+  tags?: Tag[];
+  menu_items?: MenuItem[];
+  is_active?: boolean;
+  opening_time?: string;
+  closing_time?: string;
+}
+
+export interface Tag {
+  id: number;
+  name: string;
 }
 
 export interface MenuItem {
