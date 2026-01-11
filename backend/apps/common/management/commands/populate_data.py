@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from apps.accounts.models import User, DeliveryAddress, DriverProfile
-from apps.restaurants.models import Restaurant, MenuItem, Tag
+from apps.restaurants.models import Restaurant, MenuItem, Tag, KitchenStaff
 from apps.orders.models import Order, OrderItem, Review, Notification
 from django.contrib.auth.hashers import make_password
 import random
@@ -211,6 +211,29 @@ class Command(BaseCommand):
                         'category': menu_item_data['category']
                     }
                 )
+        
+        # Create kitchen staff and assign to restaurants
+        kitchen_staff = [user for user in users if user.role == 'kitchen_staff']
+        for i, staff_user in enumerate(kitchen_staff):
+            restaurant = restaurants[i % len(restaurants)]  # Distribute staff across restaurants
+            position = random.choice(['chef', 'cook', 'manager', 'assistant'])
+
+            kitchen_staff_profile, created = KitchenStaff.objects.get_or_create(
+                user=staff_user,
+                restaurant=restaurant,
+                defaults={
+                    'position': position,
+                    'is_active': True
+                }
+            )
+            if created:
+                self.stdout.write(f'Created kitchen staff: {staff_user.name} as {position} at {restaurant.name}')
+        
+        # Also add kitchen staff to the restaurant's kitchen_staff field
+        for restaurant in restaurants:
+            staff_for_restaurant = KitchenStaff.objects.filter(restaurant=restaurant)
+            restaurant.kitchen_staff.set([staff.user for staff in staff_for_restaurant])
+            restaurant.save()
         
         # Create delivery addresses for users
         addresses_data = [

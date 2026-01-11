@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from apps.orders.models import Order, OrderItem, Review, Notification
 from apps.orders.api.serializers import OrderSerializer, OrderItemSerializer, ReviewSerializer, NotificationSerializer
+from apps.restaurants.models import KitchenStaff, Restaurant
 from django.utils import timezone
 import random
 
@@ -16,7 +17,11 @@ class OrderListCreateView(generics.ListCreateAPIView):
         
         # For kitchen staff, show orders for their restaurant
         if user.role == 'kitchen_staff':
-            return Order.objects.filter(restaurant__kitchen_staff=user)
+            try:
+                kitchen_staff = user.kitchen_staff_profile
+                return Order.objects.filter(restaurant=kitchen_staff.restaurant)
+            except KitchenStaff.DoesNotExist:
+                return Order.objects.none()
         
         # For drivers, show their assigned orders
         elif user.role == 'driver':
@@ -28,6 +33,7 @@ class OrderListCreateView(generics.ListCreateAPIView):
     
     def perform_create(self, serializer):
         user = self.request.user
+        restaurant_id = self.request.data.get('restaurant')
         
         # Generate order number
         order_number = f"ORD-{random.randint(10000, 99999)}"
@@ -39,7 +45,7 @@ class OrderListCreateView(generics.ListCreateAPIView):
             status='pending'
         )
         
-        # Create notification
+        # Create notification for customer
         Notification.objects.create(
             user=user,
             title='Order Created',
@@ -47,6 +53,22 @@ class OrderListCreateView(generics.ListCreateAPIView):
             notification_type='order',
             order=order
         )
+        
+        # Create notification for restaurant kitchen staff
+        if restaurant_id:
+            try:
+                restaurant = Restaurant.objects.get(id=restaurant_id)
+                kitchen_staff = KitchenStaff.objects.filter(restaurant=restaurant)
+                for staff in kitchen_staff:
+                    Notification.objects.create(
+                        user=staff.user,
+                        title='New Order',
+                        message=f'New order {order_number} from {user.name} needs preparation.',
+                        notification_type='order',
+                        order=order
+                    )
+            except Restaurant.DoesNotExist:
+                pass
         
         return order
 
@@ -60,7 +82,11 @@ class OrderDetailView(generics.RetrieveUpdateAPIView):
         
         # For kitchen staff, show orders for their restaurant
         if user.role == 'kitchen_staff':
-            return Order.objects.filter(restaurant__kitchen_staff=user)
+            try:
+                kitchen_staff = user.kitchen_staff_profile
+                return Order.objects.filter(restaurant=kitchen_staff.restaurant)
+            except KitchenStaff.DoesNotExist:
+                return Order.objects.none()
         
         # For drivers, show their assigned orders
         elif user.role == 'driver':

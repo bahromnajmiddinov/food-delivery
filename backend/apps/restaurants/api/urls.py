@@ -4,7 +4,10 @@ from apps.restaurants.api.views import (
     RestaurantDetailView,
     MenuItemListView,
     MenuItemDetailView,
-    PopularRestaurantsView
+    PopularRestaurantsView,
+    KitchenStaffListCreateView,
+    KitchenStaffDetailView,
+    MyRestaurantOrdersView
 )
 
 urlpatterns = [
@@ -13,4 +16,7 @@ urlpatterns = [
     path('restaurants/<int:restaurant_id>/menu/', MenuItemListView.as_view(), name='menu-item-list'),
     path('menu-items/<int:pk>/', MenuItemDetailView.as_view(), name='menu-item-detail'),
     path('restaurants/popular/', PopularRestaurantsView.as_view(), name='popular-restaurants'),
+    path('kitchen-staff/', KitchenStaffListCreateView.as_view(), name='kitchen-staff-list'),
+    path('kitchen-staff/<int:pk>/', KitchenStaffDetailView.as_view(), name='kitchen-staff-detail'),
+    path('my-restaurant-orders/', MyRestaurantOrdersView.as_view(), name='my-restaurant-orders'),
 ]
