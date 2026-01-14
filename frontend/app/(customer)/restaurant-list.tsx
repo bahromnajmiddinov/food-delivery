@@ -15,7 +15,7 @@ import { useRestaurants } from '@/hooks/useApi';
 import { Restaurant } from '@/types';
 
 export default function RestaurantListScreen() {
-  const { data: restaurantsData, isLoading, error } = useRestaurants();
+  const { data: restaurantsData, isLoading, error, refetch } = useRestaurants();
   const restaurants = restaurantsData?.results || [];
   
   if (isLoading) {
@@ -34,6 +34,10 @@ export default function RestaurantListScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Failed to load restaurants</Text>
+          <Text style={styles.errorDetail}>{error.message}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -216,5 +220,23 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     color: '#FF3B30',
+  },
+  errorDetail: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    marginTop: 12,
+    backgroundColor: '#7ED321',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });

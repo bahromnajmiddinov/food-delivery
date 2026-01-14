@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,21 +10,26 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChefHat, Clock, CheckCircle } from 'lucide-react-native';
-import { mockOrders } from '@/mocks/orders';
+import { useKitchenStaffOrders, useUpdateOrderStatus } from '@/hooks/useApi';
+import { formatPrice } from '@/lib/format';
 import { Order } from '@/types';
 
 export default function KitchenScreen() {
-  const [orders, setOrders] = useState<Order[]>(
-    mockOrders.filter(order => ['pending', 'preparing', 'ready'].includes(order.status))
-  );
+  const { data: ordersData, isLoading: ordersLoading, error: ordersError, refetch: refetchOrders } = useKitchenStaffOrders();
+  const ordersRaw = ordersData?.results || ordersData || [];
+  const [orders, setOrders] = useState<Order[]>(Array.isArray(ordersRaw) ? ordersRaw : []);
   const [selected, setSelected] = useState<string | null>(null);
 
-  const handleUpdateStatus = (orderId: string, newStatus: Order['status']) => {
-    setOrders(prev =>
-      prev.map(order =>
-        order.id === orderId ? { ...order, status: newStatus } : order
-      )
-    );
+  const updateStatusMutation = useUpdateOrderStatus();
+
+  const handleUpdateStatus = async (orderId: string, newStatus: Order['status']) => {
+    try {
+      await updateStatusMutation.mutateAsync({ orderId: Number(orderId), status: newStatus });
+      // Refresh list
+      refetchOrders();
+    } catch (err) {
+      console.error('Failed to update status', err);
+    }
   };
 
   const getStatusInfo = (status: string) => {
@@ -48,6 +53,10 @@ export default function KitchenScreen() {
       default: return 'pending';
     }
   };
+
+  useEffect(() => {
+    setOrders(Array.isArray(ordersRaw) ? ordersRaw : []);
+  }, [ordersData]);
 
   const pendingOrders = orders.filter(o => o.status === 'pending');
   const preparingOrders = orders.filter(o => o.status === 'preparing');
@@ -161,10 +170,10 @@ export default function KitchenScreen() {
               return (
                 <>
                   <View style={styles.modalHeader}>
-                    <Image source={{ uri: o.restaurant.logo }} style={styles.modalAvatar} />
+                          <Image source={{ uri: o.restaurant?.logo || undefined }} style={styles.modalAvatar} />
                     <View style={{ marginLeft: 12 }}>
-                      <Text style={styles.modalTitle}>{o.restaurant.name}</Text>
-                      <Text style={styles.modalSubtitle}>№ {o.orderNumber} • {o.estimatedDeliveryTime}</Text>
+                            <Text style={styles.modalTitle}>{o.restaurant?.name || 'Restaurant'}</Text>
+                            <Text style={styles.modalSubtitle}>№ {o.orderNumber} • {o.estimatedDeliveryTime}</Text>
                     </View>
                   </View>
 
@@ -174,7 +183,7 @@ export default function KitchenScreen() {
                       <View key={i} style={styles.itemRowModal}>
                         <Text style={styles.itemQty}>{it.quantity}x</Text>
                         <Text style={styles.itemNameModal}>{it.name}</Text>
-                        <Text style={styles.itemPrice}>${(it.price * it.quantity).toFixed(2)}</Text>
+                        <Text style={styles.itemPrice}>${formatPrice(it.price * it.quantity)}</Text>
                       </View>
                     ))}
 
@@ -188,7 +197,7 @@ export default function KitchenScreen() {
                     <View style={styles.modalFooterRow}>
                       <View>
                         <Text style={styles.modalTotalLabel}>Total</Text>
-                        <Text style={styles.modalTotal}>${o.total.toFixed(2)}</Text>
+                        <Text style={styles.modalTotal}>${formatPrice(o.total)}</Text>
                       </View>
                       <TouchableOpacity style={styles.primaryBtn} onPress={() => { setSelected(null); }}>
                         <Text style={styles.primaryBtnText}>Close</Text>

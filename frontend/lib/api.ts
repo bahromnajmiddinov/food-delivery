@@ -213,7 +213,6 @@ const ReviewAPI = {
 
 // Export all APIs
 export {
-  api as default,
   API_BASE_URL,
   AuthAPI,
   RestaurantAPI,
@@ -223,6 +222,12 @@ export {
   NotificationAPI,
   ReviewAPI,
 };
+
+// Named export for axios instance (used by hooks)
+export { api };
+
+// Default export
+export default api;
 
 // Helper function to handle API errors
 export const handleApiError = (error: any, defaultMessage: string = 'An error occurred') => {

@@ -14,7 +14,7 @@ import { UserRole } from '@/types';
 import { ShoppingBag, Bike, UtensilsCrossed } from 'lucide-react-native';
 
 export default function RoleSelectorScreen() {
-  const { verifyOTP } = useAuth();
+  const { verifyOTP, pendingOTP } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>('customer');
   const [name, setName] = useState('');
   const [scaleAnims] = useState(() => ({
@@ -66,7 +66,8 @@ export default function RoleSelectorScreen() {
 
   const handleContinue = async () => {
     if (name.trim()) {
-      await verifyOTP('123456', selectedRole, name);
+      const code = (pendingOTP as string) || '';
+      await verifyOTP(code, selectedRole, name);
       
       if (selectedRole === 'customer') {
         router.replace('/(customer)/home');

@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { mockOrders } from '@/mocks/orders';
+import { useUserOrders } from '@/hooks/useApi';
+import { formatPrice } from '@/lib/format';
 import { MapPin, Clock, CheckCircle, Truck, Package, ChefHat, Navigation, Zap } from 'lucide-react-native';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useDriver } from '@/contexts/DriverContext';
+import { OrderAPI } from '@/lib/api';
 import { fetchDirections } from '@/lib/googleDirections';
 import { GOOGLE_MAPS_API_KEY } from '@/lib/config';
 
@@ -72,6 +75,10 @@ const getStatusConfig = (status: string) => {
 
 export default function CustomerOrdersScreen() {
   const [selected, setSelected] = useState<string | null>(null);
+  const { data: ordersData, isLoading: ordersLoading, error: ordersError, refetch: refetchOrders } = useUserOrders();
+
+  const ordersRaw = ordersData?.results || ordersData || [];
+  const orders = Array.isArray(ordersRaw) ? ordersRaw : [];
   const [isLiveTracking, setIsLiveTracking] = useState(false);
   const [driverSpeed, setDriverSpeed] = useState<number>(0);
   const [distanceRemaining, setDistanceRemaining] = useState<string>('Calculating...');
@@ -110,7 +117,7 @@ export default function CustomerOrdersScreen() {
     // Set up interval for location updates
     trackingIntervalRef.current = setInterval(() => {
       // Simulate driver movement towards destination
-      if (driverPositionRef.current && order.deliveryAddress.coordinates) {
+      if (driverPositionRef.current && order.deliveryAddress?.coordinates) {
         const current = driverPositionRef.current;
         const destination = order.deliveryAddress.coordinates;
         
@@ -169,7 +176,7 @@ export default function CustomerOrdersScreen() {
   // Start tracking when modal opens
   useEffect(() => {
     if (selected) {
-      const order = mockOrders.find(x => x.id === selected);
+      const order = orders.find(x => String(x.id) === String(selected));
       if (order && (order.status === 'picking_up' || order.status === 'delivering')) {
         setTimeout(() => startLiveTracking(order), 1000);
       }
@@ -185,10 +192,10 @@ export default function CustomerOrdersScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Orders</Text>
-        <Text style={styles.subtitle}>{mockOrders.length} orders</Text>
+        <Text style={styles.subtitle}>{orders.length} orders</Text>
       </View>
       <ScrollView style={styles.scrollView} contentContainerStyle={{ padding: 20 }}>
-        {mockOrders.map((order) => {
+        {orders.map((order) => {
           const statusConfig = getStatusConfig(order.status);
           const StatusIcon = statusConfig.icon;
           
@@ -196,9 +203,15 @@ export default function CustomerOrdersScreen() {
             <TouchableOpacity key={order.id} style={styles.orderCard} onPress={() => setSelected(order.id)}>
               {/* Restaurant Header */}
               <View style={styles.restaurantHeader}>
-                <Image source={{ uri: order.restaurant.logo }} style={styles.restaurantLogo} />
+                {order.restaurant?.logo ? (
+                  <Image source={{ uri: order.restaurant.logo }} style={styles.restaurantLogo} />
+                ) : (
+                  <View style={[styles.restaurantLogo, styles.logoPlaceholder]}>
+                    <Text style={styles.logoPlaceholderText}>{(order.restaurant?.name || 'R').charAt(0)}</Text>
+                  </View>
+                )}
                 <View style={styles.restaurantInfo}>
-                  <Text style={styles.restaurantName}>{order.restaurant.name}</Text>
+                  <Text style={styles.restaurantName}>{order.restaurant?.name || 'Restaurant'}</Text>
                   <Text style={styles.orderNumber}>#{order.orderNumber}</Text>
                 </View>
                 <View style={styles.deliveryTimeContainer}>
@@ -218,13 +231,13 @@ export default function CustomerOrdersScreen() {
                 <Text style={styles.orderItemsText}>
                   {order.items.reduce((total, item) => total + item.quantity, 0)} items
                 </Text>
-                <Text style={styles.orderTotal}>${order.total.toFixed(2)}</Text>
+                <Text style={styles.orderTotal}>${formatPrice(order.total)}</Text>
               </View>
 
               {/* Delivery Address */}
               <View style={styles.addressContainer}>
                 <MapPin size={14} color="#999" />
-                <Text style={styles.addressText}>{order.deliveryAddress.address}</Text>
+                <Text style={styles.addressText}>{order.deliveryAddress?.address || 'Address not available'}</Text>
               </View>
 
               {/* Progress indicator for active orders */}
@@ -247,7 +260,7 @@ export default function CustomerOrdersScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             {selected && (() => {
-              const o = mockOrders.find(x => x.id === selected)!;
+              const o = orders.find(x => String(x.id) === String(selected))!;
               const statusConfig = getStatusConfig(o.status);
               const StatusIcon = statusConfig.icon;
               
@@ -261,7 +274,7 @@ export default function CustomerOrdersScreen() {
                     
                     <View style={styles.modalTitleSection}>
                       <Text style={styles.modalTitle}>Order #{o.orderNumber}</Text>
-                      <Text style={styles.modalSubtitle}>{o.restaurant.name}</Text>
+                      <Text style={styles.modalSubtitle}>{o.restaurant?.name || 'Restaurant'}</Text>
                     </View>
                   </View>
 
@@ -353,25 +366,26 @@ export default function CustomerOrdersScreen() {
                       </TouchableOpacity>
                     </View>
                     
-                    <MapView
-                      ref={mapRef}
-                      provider={PROVIDER_DEFAULT}
-                      style={styles.map}
-                      initialRegion={{
-                        latitude: o.deliveryAddress.coordinates.latitude,
-                        longitude: o.deliveryAddress.coordinates.longitude,
-                        latitudeDelta: 0.03,
-                        longitudeDelta: 0.03,
-                      }}
-                      showsUserLocation={true}
-                      followsUserLocation={isLiveTracking}
-                      showsTraffic={true}
-                    >
+                    { (o.deliveryAddress?.coordinates || o.restaurant?.coordinates || driver?.location) && (
+                      <MapView
+                        ref={mapRef}
+                        provider={PROVIDER_DEFAULT}
+                        style={styles.map}
+                        initialRegion={{
+                          latitude: o.deliveryAddress?.coordinates?.latitude ?? o.restaurant?.coordinates?.latitude ?? driver?.location?.latitude ?? 0,
+                          longitude: o.deliveryAddress?.coordinates?.longitude ?? o.restaurant?.coordinates?.longitude ?? driver?.location?.longitude ?? 0,
+                          latitudeDelta: 0.03,
+                          longitudeDelta: 0.03,
+                        }}
+                        showsUserLocation={true}
+                        followsUserLocation={isLiveTracking}
+                        showsTraffic={true}
+                      >
                       {/* Kitchen/Restaurant Marker */}
-                      {o.restaurant.coordinates && (
+                      {o.restaurant?.coordinates && (
                         <Marker 
                           coordinate={o.restaurant.coordinates} 
-                          title={`${o.restaurant.name} (Kitchen)`}
+                          title={`${o.restaurant?.name || 'Restaurant'} (Kitchen)`}
                           pinColor="#5CB338"
                         >
                           <View style={styles.kitchenMarker}>
@@ -381,15 +395,17 @@ export default function CustomerOrdersScreen() {
                       )}
 
                       {/* Customer Location Marker */}
-                      <Marker 
-                        coordinate={o.deliveryAddress.coordinates} 
-                        title="Delivery Location"
-                        pinColor="#FF6B35"
-                      >
-                        <View style={styles.customerMarker}>
-                          <MapPin size={20} color="#fff" />
-                        </View>
-                      </Marker>
+                      {o.deliveryAddress?.coordinates && (
+                        <Marker 
+                          coordinate={o.deliveryAddress.coordinates} 
+                          title="Delivery Location"
+                          pinColor="#FF6B35"
+                        >
+                          <View style={styles.customerMarker}>
+                            <MapPin size={20} color="#fff" />
+                          </View>
+                        </Marker>
+                      )}
 
                       {/* Driver Location Marker with Live Animation */}
                       {(driver?.location || driverPositionRef.current) && (
@@ -427,7 +443,7 @@ export default function CustomerOrdersScreen() {
                       )}
                       
                       {/* Alternative route from driver's current position */}
-                      {(isLiveTracking && driverPositionRef.current) && (
+                      {(isLiveTracking && driverPositionRef.current && o.deliveryAddress?.coordinates) && (
                         <Polyline
                           coordinates={[
                             driverPositionRef.current,
@@ -439,6 +455,12 @@ export default function CustomerOrdersScreen() {
                         />
                       )}
                     </MapView>
+                    )}
+                    {! (o.deliveryAddress?.coordinates || o.restaurant?.coordinates || driver?.location) && (
+                      <View style={[styles.map, { alignItems: 'center', justifyContent: 'center' }]}>
+                        <Text style={{ color: '#666' }}>Location not available</Text>
+                      </View>
+                    )}
                     
                     {/* Map Legend */}
                     <View style={styles.mapLegend}>
@@ -471,7 +493,7 @@ export default function CustomerOrdersScreen() {
                                 <Text style={styles.itemDescription}>{item.description}</Text>
                               </View>
                             </View>
-                            <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
+                            <Text style={styles.itemPrice}>${formatPrice(item.price * item.quantity)}</Text>
                           </View>
                         ))}
                       </View>
@@ -482,7 +504,7 @@ export default function CustomerOrdersScreen() {
                       <Text style={styles.sectionTitle}>Delivery Information</Text>
                       <View style={styles.infoRow}>
                         <MapPin size={16} color="#999" />
-                        <Text style={styles.infoText}>{o.deliveryAddress.address}</Text>
+                        <Text style={styles.infoText}>{o.deliveryAddress?.address || 'Address not available'}</Text>
                       </View>
                       <View style={styles.infoRow}>
                         <Clock size={16} color="#999" />
@@ -495,15 +517,15 @@ export default function CustomerOrdersScreen() {
                       <Text style={styles.sectionTitle}>Payment Summary</Text>
                       <View style={styles.paymentRow}>
                         <Text style={styles.paymentLabel}>Subtotal</Text>
-                        <Text style={styles.paymentValue}>${(o.total - o.deliveryFee).toFixed(2)}</Text>
+                        <Text style={styles.paymentValue}>${formatPrice(o.total - o.deliveryFee)}</Text>
                       </View>
                       <View style={styles.paymentRow}>
                         <Text style={styles.paymentLabel}>Delivery fee</Text>
-                        <Text style={styles.paymentValue}>${o.deliveryFee.toFixed(2)}</Text>
+                        <Text style={styles.paymentValue}>${formatPrice(o.deliveryFee)}</Text>
                       </View>
                       <View style={[styles.paymentRow, styles.paymentTotalRow]}>
                         <Text style={styles.paymentTotalLabel}>Total</Text>
-                        <Text style={styles.paymentTotalValue}>${o.total.toFixed(2)}</Text>
+                        <Text style={styles.paymentTotalValue}>${formatPrice(o.total)}</Text>
                       </View>
                     </View>
 
@@ -577,10 +599,25 @@ export function useDirectionsEffects(driver: ReturnType<typeof useDriver>, selec
     if (!selectedId) return;
     try {
       setDirectionsLoading(true);
-      const o = mockOrders.find(x => x.id === selectedId);
+      let o: any = null;
+      try {
+        const resp = await OrderAPI.getOrderById(selectedId as any);
+        o = resp.data || resp;
+      } catch {
+        // fallback to mock if API fails
+        o = mockOrders.find(x => x.id === selectedId);
+      }
       if (!o) return;
-      const origin = driver?.location ?? (o.restaurant.coordinates ?? o.deliveryAddress.coordinates);
-      const destination = o.deliveryAddress.coordinates;
+      const origin = driver?.location ?? (o.restaurant?.coordinates ?? o.deliveryAddress?.coordinates);
+      const destination = o.deliveryAddress?.coordinates;
+      if (!destination) {
+        setDirectionsLoading(false);
+        return;
+      }
+      if (!origin) {
+        setDirectionsLoading(false);
+        return;
+      }
       try {
         const res = await fetchDirections(origin, destination, GOOGLE_MAPS_API_KEY || undefined);
         if (res && res.coords) {
@@ -588,7 +625,7 @@ export function useDirectionsEffects(driver: ReturnType<typeof useDriver>, selec
         }
         if (res && res.durationSeconds != null) {
           const mins = Math.round(res.durationSeconds / 60);
-          const km = res.distanceMeters ? (res.distanceMeters / 1000).toFixed(2) : null;
+          const km = res.distanceMeters ? formatPrice(res.distanceMeters / 1000) : null;
           setEtaText(`${mins} min${km ? ` — ${km} km` : ''}`);
         } else {
           // fallback to internal estimate
@@ -670,6 +707,16 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 12,
     marginRight: 12,
+  },
+  logoPlaceholder: {
+    backgroundColor: '#E0E0E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoPlaceholderText: {
+    color: '#666',
+    fontWeight: '700',
+    fontSize: 20,
   },
   restaurantInfo: {
     flex: 1,

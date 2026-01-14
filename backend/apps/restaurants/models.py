@@ -3,6 +3,17 @@ from apps.common.models import BaseModel
 from apps.accounts.models import User
 
 
+class RestaurantType(models.Choices):
+    FAST_FOOD = 'fast_food'
+    FINE_DINING = 'fine_dining'
+    CAFE = 'cafe'
+    CASUAL_DINING = 'casual_dining'
+    FOOD_TRUCK = 'food_truck'
+    BUFFET = 'buffet'
+    POP_UP = 'pop_up'
+    DELIVERY_ONLY = 'delivery_only'
+
+
 class Restaurant(BaseModel):
     name = models.CharField(max_length=255)
     image = models.URLField()
@@ -16,6 +27,7 @@ class Restaurant(BaseModel):
     is_active = models.BooleanField(default=True)
     opening_time = models.TimeField(null=True, blank=True)
     closing_time = models.TimeField(null=True, blank=True)
+    type = models.CharField(max_length=50, choices=RestaurantType.choices, default=RestaurantType.CASUAL_DINING)
     
     def __str__(self):
         return self.name

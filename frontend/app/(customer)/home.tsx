@@ -165,7 +165,7 @@ export default function CustomerHomeScreen() {
         scrollEventThrottle={16}
       >
         {promoCards.map((promo) => {
-          const restaurant = mockRestaurants.find(r => r.name === promo.restaurant);
+          const restaurant = restaurants.find((r: Restaurant) => r.name === promo.restaurant) || popularRestaurants.find((r: Restaurant) => r.name === promo.restaurant);
           return (
             <TouchableOpacity 
               key={promo.id} 
@@ -189,15 +189,15 @@ export default function CustomerHomeScreen() {
         })}
 
         <View style={styles.categoriesContainer}>
-          {categories.map((category) => (
+                {categories.map((category) => (
             <TouchableOpacity 
               key={category.id} 
               style={styles.categoryCard}
               onPress={() => {
-                // Navigate to search with category filter
-                if (category.name === 'Restaurants') {
-                  router.push('/(customer)/restaurant-detail?id=' + mockRestaurants[0].id as any);
-                } else if (category.name === 'Shops') {
+                        // Navigate to search with category filter
+                        if (category.name === 'Restaurants') {
+                          router.push('/(customer)/restaurant-list' as any);
+                        } else if (category.name === 'Shops') {
                   // For shops, show a message or navigate to a shops page
                   console.log('Shops category selected');
                 } else if (category.name === 'Offers') {

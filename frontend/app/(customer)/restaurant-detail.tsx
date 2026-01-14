@@ -15,6 +15,8 @@ import { ArrowLeft, Star, Clock, MapPin, Plus, Minus, X, ShoppingCart } from 'lu
 import { useRestaurantDetail, useMenuItems } from '@/hooks/useApi';
 import { useCart } from '@/contexts/AuthContext';
 import { MenuItem } from '@/types';
+import { mockReviews } from '@/mocks/reviews';
+import { formatPrice } from '@/lib/format';
 
 export default function RestaurantDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -28,7 +30,7 @@ export default function RestaurantDetailScreen() {
   const { data: menuItemsData, isLoading: isLoadingMenu, error: menuError } = useMenuItems(typeof id === 'string' ? parseInt(id) : null);
 
   const restaurant = restaurantData;
-  const menuItems = menuItemsData || [];
+  const menuItems = Array.isArray(menuItemsData) ? menuItemsData : (menuItemsData?.results || []);
 
   const categories = ['All', ...Array.from(new Set(menuItems.map((item: MenuItem) => item.category)))];
 
@@ -67,6 +69,21 @@ export default function RestaurantDetailScreen() {
       </View>
     );
   }
+
+  // Lightweight ETA parsing: derive minutes from `delivery_time` like "45-55 min"
+  const parseDeliveryTimeMinutes = (dt?: string | null) => {
+    if (!dt) return null;
+    const m = dt.match(/(\d+)(?:-(\d+))?/);
+    if (!m) return null;
+    const a = parseInt(m[1], 10);
+    const b = m[2] ? parseInt(m[2], 10) : null;
+    return b ? Math.round((a + b) / 2) : a;
+  };
+
+  const eta = {
+    minutes: parseDeliveryTimeMinutes(restaurant.delivery_time),
+    distanceKm: restaurant.distance ? parseFloat(String(restaurant.distance).replace(/[^0-9.]/g, '')) : null,
+  };
 
   const handleAddToCart = () => {
     if (selectedItem) {
@@ -170,7 +187,7 @@ export default function RestaurantDetailScreen() {
                   <Text style={styles.menuItemDescription} numberOfLines={2}>
                     {item.description}
                   </Text>
-                  <Text style={styles.menuItemPrice}>${item.price.toFixed(2)}</Text>
+                  <Text style={styles.menuItemPrice}>${formatPrice(item.price)}</Text>
                 </View>
                 <TouchableOpacity 
                   style={styles.addButton}
@@ -256,7 +273,7 @@ export default function RestaurantDetailScreen() {
                     {selectedItem.description}
                   </Text>
                   <Text style={styles.modalPrice}>
-                    ${selectedItem.price.toFixed(2)}
+                    ${formatPrice(selectedItem.price)}
                   </Text>
 
                   <View style={styles.quantityContainer}>

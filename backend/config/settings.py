@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework.authtoken',
+    'drf_spectacular',
     'corsheaders',
     'apps.accounts',
     'apps.products',
@@ -90,6 +91,7 @@ DATABASES = {
 
 # REST Framework settings
 REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
@@ -102,13 +104,7 @@ REST_FRAMEWORK = {
 }
 
 # CORS settings for React Native frontend
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:19006",
-    "http://localhost:8081",
-    "http://127.0.0.1:19006",
-    "http://127.0.0.1:8081",
-]
-
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
 # Custom user model
@@ -150,8 +146,18 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Spectacular
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'API',
+    'DESCRIPTION': 'API',
+    'VERSION': '1.0.0',
+    'VERSIONING_CLASS': 'rest_framework.versioning.NamespaceVersioning',
+    'SCHEMA_PATH_PREFIX': r'/api/v[0-9]+',
+}

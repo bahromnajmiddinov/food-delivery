@@ -2,12 +2,14 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useState, useEffect } from 'react';
 import { User, UserRole, CartItem, DeliveryAddress } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthAPI, setAuthToken, handleApiError } from '@/lib/api';
 
 export const [AuthContext, useAuth] = createContextHook(() => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otpSent, setOtpSent] = useState(false);
+  const [pendingOTP, setPendingOTP] = useState('');
 
   useEffect(() => {
     loadUser();
@@ -34,31 +36,49 @@ export const [AuthContext, useAuth] = createContextHook(() => {
   };
 
   const sendOTP = async (phone: string) => {
-    console.log('Sending OTP to:', phone);
-    setPhoneNumber(phone);
-    setOtpSent(true);
-    return true;
+    try {
+      console.log('Sending OTP to:', phone);
+      const res = await AuthAPI.sendOTP(phone);
+      if (res.status === 200) {
+        setPhoneNumber(phone);
+        setOtpSent(true);
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      console.error('sendOTP error:', handleApiError(error));
+      return false;
+    }
   };
 
   const verifyOTP = async (otp: string, role: UserRole, name: string) => {
-    console.log('Verifying OTP:', otp);
-    
-    const newUser: User = {
-      id: Math.random().toString(),
-      phone: phoneNumber,
-      name,
-      role,
-      rating: 4.5,
-    };
-
-    await AsyncStorage.setItem('user', JSON.stringify(newUser));
-    setUser(newUser);
-    setOtpSent(false);
-    return true;
+    try {
+      console.log('Verifying OTP:', otp, 'for', phoneNumber);
+      const res = await AuthAPI.verifyOTP(phoneNumber, otp, name, role);
+      if (res.status === 200) {
+        const { token, user: userData } = res.data;
+        if (token) {
+          await setAuthToken(token);
+          await AsyncStorage.setItem('authToken', token);
+        }
+        if (userData) {
+          await AsyncStorage.setItem('user', JSON.stringify(userData));
+          setUser(userData as User);
+        }
+        setOtpSent(false);
+        return true;
+      }
+      console.error('verifyOTP unexpected response', res.status, res.data);
+      return false;
+    } catch (error: any) {
+      console.error('verifyOTP error:', handleApiError(error));
+      return false;
+    }
   };
 
   const logout = async () => {
     await AsyncStorage.removeItem('user');
+    await AsyncStorage.removeItem('authToken');
     setUser(null);
     setPhoneNumber('');
     setOtpSent(false);
@@ -77,8 +97,10 @@ export const [AuthContext, useAuth] = createContextHook(() => {
     isLoading,
     phoneNumber,
     otpSent,
+    pendingOTP,
     sendOTP,
     verifyOTP,
+    setPendingOTP,
     logout,
     updateRole,
   };

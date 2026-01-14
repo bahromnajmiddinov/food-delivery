@@ -3,6 +3,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from apps.restaurants.models import Restaurant, MenuItem, KitchenStaff
 from apps.restaurants.api.serializers import RestaurantSerializer, MenuItemSerializer, KitchenStaffSerializer
 from apps.orders.api.serializers import OrderSerializer
+from apps.orders.models import Order
 
 
 class RestaurantListView(generics.ListAPIView):
