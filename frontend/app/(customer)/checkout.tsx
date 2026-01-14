@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router } from 'expo-router';
 import { ArrowLeft, MapPin, Wallet, CreditCard, StickyNote } from 'lucide-react-native';
 import { useCart } from '@/contexts/AuthContext';
+import { OrderAPI, AddressAPI, handleApiError } from '@/lib/api';
+import { formatPrice } from '@/lib/format';
 import { PaymentMethod } from '@/types';
 
 export default function CheckoutScreen() {
@@ -30,8 +32,51 @@ export default function CheckoutScreen() {
     }
 
     setIsProcessing(true);
+    try {
+      // Create order
+      // Ensure delivery address exists on backend (map-created addresses use local random ids)
+      let deliveryAddressId = deliveryAddress.id;
+      // Treat IDs that are not integer strings as local-only IDs created by the client
+      const isLocalId = !/^\d+$/.test(String(deliveryAddressId));
+      if (isLocalId) {
+        const addressPayload = {
+          label: deliveryAddress.label,
+          address: deliveryAddress.address,
+          latitude: deliveryAddress.coordinates.latitude,
+          longitude: deliveryAddress.coordinates.longitude,
+          is_saved: true,
+        };
+        const addrRes = await AddressAPI.addAddress(addressPayload);
+        const created = addrRes.data || addrRes;
+        deliveryAddressId = created.id || created?.data?.id;
+      }
 
-    setTimeout(() => {
+      const orderPayload = {
+        restaurant: items[0]?.restaurantId ? Number(items[0].restaurantId) : null,
+        delivery_address: Number(deliveryAddressId),
+        payment_method: paymentMethod,
+        total: Number(finalTotal),
+        delivery_fee: Number(deliveryFee),
+        notes,
+      };
+
+      const res = await OrderAPI.createOrder(orderPayload);
+      const order = res.data || res; // handle different axios shapes
+      const orderId = order.id || order?.data?.id;
+
+      // Add order items
+      for (const it of items) {
+        const itemPayload = {
+          menu_item: Number(it.id),
+          name: it.name,
+          description: it.description || '',
+          price: Number(it.price),
+          quantity: Number(it.quantity),
+          category: it.category || 'Main',
+        };
+        await OrderAPI.addOrderItem(orderId, itemPayload);
+      }
+
       Alert.alert(
         'Order Placed!',
         `Your order has been placed successfully. Order total: $${finalTotal.toFixed(2)}`,
@@ -45,8 +90,13 @@ export default function CheckoutScreen() {
           },
         ]
       );
+    } catch (error: any) {
+      console.error('Place order error', error?.response?.data || error);
+      const msg = handleApiError(error, 'Failed to place order');
+      Alert.alert('Order Failed', String(msg));
+    } finally {
       setIsProcessing(false);
-    }, 1500);
+    }
   };
 
   return (

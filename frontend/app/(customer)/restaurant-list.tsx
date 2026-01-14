@@ -7,12 +7,42 @@ import {
   TouchableOpacity,
   Image,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { Clock, Star, ChevronLeft } from 'lucide-react-native';
-import { mockRestaurants } from '@/mocks/restaurants';
 import { router } from 'expo-router';
+import { useRestaurants } from '@/hooks/useApi';
+import { Restaurant } from '@/types';
 
 export default function RestaurantListScreen() {
+  const { data: restaurantsData, isLoading, error, refetch } = useRestaurants();
+  const restaurants = restaurantsData?.results || [];
+  
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#7ED321" />
+          <Text style={styles.loadingText}>Loading restaurants...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Failed to load restaurants</Text>
+          <Text style={styles.errorDetail}>{error.message}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => refetch()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+  
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -28,7 +58,7 @@ export default function RestaurantListScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {mockRestaurants.map((restaurant) => (
+        {restaurants.map((restaurant: Restaurant) => (
           <TouchableOpacity
             key={restaurant.id}
             style={styles.restaurantCard}
@@ -49,7 +79,7 @@ export default function RestaurantListScreen() {
               <View style={styles.restaurantMeta}>
                 <Clock size={14} color="#999" />
                 <Text style={styles.restaurantMetaText}>
-                  {restaurant.deliveryTime}
+                  {restaurant.delivery_time}
                 </Text>
               </View>
               {restaurant.tags.length > 0 && (
@@ -169,5 +199,44 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 8,
     marginBottom: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#FF3B30',
+  },
+  errorDetail: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#666',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  retryButton: {
+    marginTop: 12,
+    backgroundColor: '#7ED321',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });

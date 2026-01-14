@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, router } from 'expo-router';
 import { ArrowLeft, Plus, Minus, Trash2 } from 'lucide-react-native';
 import { useCart } from '@/contexts/AuthContext';
+import { formatPrice } from '@/lib/format';
 
 export default function CartScreen() {
   const { items, updateQuantity, total, clearCart } = useCart();
@@ -70,7 +71,7 @@ export default function CartScreen() {
                 <Image source={{ uri: item.image }} style={styles.itemImage} />
                 <View style={styles.itemInfo}>
                   <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+                  <Text style={styles.itemPrice}>${formatPrice(item.price)}</Text>
                   <View style={styles.quantityControls}>
                     <TouchableOpacity
                       style={styles.quantityButton}
@@ -92,7 +93,7 @@ export default function CartScreen() {
                   </View>
                 </View>
                 <Text style={styles.itemTotal}>
-                  ${(item.price * item.quantity).toFixed(2)}
+                  ${formatPrice((typeof item.price === 'number' ? item.price : parseFloat(String(item.price || 0))) * item.quantity)}
                 </Text>
               </View>
             ))}
@@ -102,15 +103,15 @@ export default function CartScreen() {
             <Text style={styles.summaryTitle}>Order Summary</Text>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>${total.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>${formatPrice(total)}</Text>
             </View>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Delivery Fee</Text>
-              <Text style={styles.summaryValue}>${deliveryFee.toFixed(2)}</Text>
+              <Text style={styles.summaryValue}>${formatPrice(deliveryFee)}</Text>
             </View>
             <View style={[styles.summaryRow, styles.summaryTotal]}>
               <Text style={styles.summaryTotalLabel}>Total</Text>
-              <Text style={styles.summaryTotalValue}>${finalTotal.toFixed(2)}</Text>
+              <Text style={styles.summaryTotalValue}>${formatPrice(finalTotal)}</Text>
             </View>
           </View>
         </View>
@@ -121,8 +122,8 @@ export default function CartScreen() {
           style={styles.checkoutButton}
           onPress={() => router.push('/checkout')}
         >
-          <Text style={styles.checkoutButtonText}>
-            Proceed to Checkout • ${finalTotal.toFixed(2)}
+            <Text style={styles.checkoutButtonText}>
+            Proceed to Checkout • ${formatPrice(finalTotal)}
           </Text>
         </TouchableOpacity>
       </SafeAreaView>

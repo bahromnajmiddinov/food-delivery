@@ -16,6 +16,7 @@ import { Phone, Check } from 'lucide-react-native';
 
 export default function LoginScreen() {
   const { sendOTP, phoneNumber, otpSent } = useAuth();
+  const { setPendingOTP } = useAuth();
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -44,6 +45,8 @@ export default function LoginScreen() {
 
   const handleVerifyOTP = async () => {
     if (otp.length === 6) {
+      // save entered OTP in auth context and navigate
+      setPendingOTP(otp);
       router.push('/role-selector');
     }
   };
